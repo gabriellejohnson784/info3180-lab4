@@ -6,11 +6,16 @@ from werkzeug.utils import secure_filename
 from app.models import UserProfile
 from app.forms import LoginForm
 from werkzeug.security import check_password_hash
+from flask_login import login_required
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+from flask_login import current_user
 
 
 ###
 # Routing for your application.
 ###
+
 
 @app.route('/')
 def home():
@@ -68,6 +73,22 @@ def login():
     
     return render_template("login.html", form=form)
 
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logged Out.')
+    return redirect(url_for('home'))
+
+
+@app.route('/file')
+@login_required
+def files():
+    images = get_uploaded_image()
+    return render_template('files.html', images= images)
+
+
+
 # user_loader callback. This callback is used to reload the user object from
 # the user ID stored in the session
 @login_manager.user_loader
@@ -75,10 +96,10 @@ def load_user(id):
     return db.session.execute(db.select(UserProfile).filter_by(id=id)).scalar()
 
 
-
-login_manager.user_loader
-def load_user(id):
-    return db.session.execute(db.select(UserProfile).filter_by(id=id)).scalar()
+def get_uploaded_image():
+    uploads_dir = os.path.join(app.config['UPLOAD_FOLDER'])
+    uploaded_images = [f for f in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, f))]
+    return uploaded_images
 
 # Flash errors from the form if validation fails
 def flash_errors(form):
@@ -95,6 +116,9 @@ def send_text_file(file_name):
     file_dot_text = file_name + '.txt'
     return app.send_static_file(file_dot_text)
 
+@app.route('/uploads/<filename>')
+def get_image(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.after_request
 def add_header(response):
